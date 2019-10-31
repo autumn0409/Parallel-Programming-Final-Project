@@ -49,7 +49,7 @@ public:
 
 int pairToIndex(const Pos &position);
 void initSrc(const Pos &start);
-int routing(AlgParser &p, int i, ofstream &output);
+void routing(AlgParser &p, int i, ofstream &output);
 void relax(Vertex &v, priority_queue<Vertex> &Q, int j);
 void printRoutes(const Pos &start, const Pos &end, int i, ofstream &output);
 
@@ -175,7 +175,7 @@ void initSrc(const Pos &start)
     map.vertices[pairToIndex(start)].d = 0;
 }
 
-int routing(AlgParser &p, int i, ofstream &output)
+void routing(AlgParser &p, int i, ofstream &output)
 {
     Pos start = p.gNetStart(i);
     Pos end = p.gNetEnd(i);
