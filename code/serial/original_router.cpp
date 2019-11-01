@@ -13,7 +13,7 @@ typedef pair<int, int> Pos;
 
 class AlgParser
 {
-  public:
+public:
 	AlgParser(void) {}
 
 	// specify the parsing file name and then parse the file
@@ -37,7 +37,7 @@ class AlgParser
 	// return the ending x and y position for the net
 	pair<int, int> gNetEnd(int id) { return netsPos[id].second; }
 
-  private:
+private:
 	int numHTilesm, numVTilesm, capacity, numNets;
 	typedef pair<int, int> Pos;
 	typedef pair<Pos, Pos> NetPos;
@@ -46,7 +46,7 @@ class AlgParser
 
 class AlgTimer
 {
-  public:
+public:
 	AlgTimer(void) {}
 
 	// Strat the timer
@@ -55,7 +55,7 @@ class AlgTimer
 	// Return the accumulated time in seconds
 	double End(void);
 
-  private:
+private:
 	long begin_clock;
 };
 
@@ -63,7 +63,7 @@ class AlgTimer
 
 class Vertex
 {
-  public:
+public:
 	Pos position;
 	double d;
 	Vertex *pi;
@@ -75,7 +75,7 @@ class Vertex
 
 class Edge
 {
-  public:
+public:
 	int vertexIndex;
 	double flowNum;
 	double weight;
@@ -85,7 +85,7 @@ class Edge
 
 class Graph
 {
-  public:
+public:
 	int gridNumX;
 	int gridNumY;
 	int capacity;
@@ -102,7 +102,7 @@ class Graph
 
 int pairToIndex(const Pos &position);
 void initSrc(const Pos &start);
-int routing(AlgParser &p, int i, ofstream &output);
+void routing(AlgParser &p, int i, ofstream &output);
 void relax(Vertex &v, priority_queue<Vertex> &Q, int j);
 void printRoutes(const Pos &start, const Pos &end, int i, ofstream &output);
 
@@ -297,7 +297,7 @@ void initSrc(const Pos &start)
 	map.vertices[pairToIndex(start)].d = 0;
 }
 
-int routing(AlgParser &p, int i, ofstream &output)
+void routing(AlgParser &p, int i, ofstream &output)
 {
 	Pos start = p.gNetStart(i);
 	Pos end = p.gNetEnd(i);
