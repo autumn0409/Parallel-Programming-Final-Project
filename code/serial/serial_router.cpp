@@ -63,10 +63,10 @@ int main(int argc, char **argv)
 {
 
     AlgParser p;
-    // AlgTimer t;
+    AlgTimer t;
 
     p.read(argv[1]);
-    // t.Begin();
+    t.Begin();
     ofstream output(argv[2]);
 
     map.setGraph(p.gNumHTiles(), p.gNumVTiles(), p.gCapacity(), p.gNumNets());
@@ -74,7 +74,7 @@ int main(int argc, char **argv)
     for (int i = 0; i < map.netCnt; i++)
         routing(p, i, output);
 
-    // cout << "The execution spends " << t.End() << " seconds" << endl;
+    cout << "Execution time: " << t.End() << "s" << endl;
     output.close();
     return 0;
 }
