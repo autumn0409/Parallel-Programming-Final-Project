@@ -7,6 +7,10 @@ using namespace std;
 
 class Vertex
 {
+    friend class Graph;
+    friend bool operator<(const Vertex &, const Vertex &);
+    friend bool operator>(const Vertex &, const Vertex &);
+
 private:
     Pos position;
     double d;
@@ -16,14 +20,12 @@ private:
 public:
     Vertex();
     Vertex(int x, int y, int gridNumX);
-
-    friend bool operator<(const Vertex &, const Vertex &);
-    friend bool operator>(const Vertex &, const Vertex &);
-    friend class Graph;
 };
 
 class Edge
 {
+    friend class Graph;
+
 private:
     int vertexIndex;
     double flowNum;
@@ -31,8 +33,6 @@ private:
 
 public:
     Edge(int num);
-
-    friend class Graph;
 };
 
 class Graph
@@ -53,8 +53,7 @@ private:
     int pairToIndex(const Pos &position);
 
 public:
-    Graph();
-    void setGraph(int gridNumX, int gridNumY, int capacity, int netCnt);
+    Graph(int gridNumX, int gridNumY, int capacity, int netCnt);
     void routing(Parser &p, int i, ofstream &output);
 };
 
@@ -63,12 +62,11 @@ int main(int argc, char **argv)
 {
     Parser p;
     Timer t;
-    Graph map;
     ofstream output(argv[2]);
 
     t.Begin();
     p.read(argv[1]);
-    map.setGraph(p.gNumHTiles(), p.gNumVTiles(), p.gCapacity(), p.gNumNets());
+    Graph map(p.gNumHTiles(), p.gNumVTiles(), p.gCapacity(), p.gNumNets());
 
     for (int i = 0; i < p.gNumNets(); i++)
         map.routing(p, i, output);
@@ -107,16 +105,8 @@ Edge::Edge(int num) : vertexIndex(num), weight(0), flowNum(0)
 }
 
 // Graph
-Graph::Graph() : gridNumX(0), gridNumY(0), capacity(0), netCnt(0)
+Graph::Graph(int gridNumX, int gridNumY, int capacity, int netCnt) : gridNumX(gridNumX), gridNumY(gridNumY), capacity(capacity), netCnt(netCnt)
 {
-}
-void Graph::setGraph(int gridNumX, int gridNumY, int capacity, int netCnt)
-{
-    this->gridNumX = gridNumX;
-    this->gridNumY = gridNumY;
-    this->capacity = capacity;
-    this->netCnt = netCnt;
-
     for (int j = 0; j < gridNumY; j++)
     {
         for (int i = 0; i < gridNumX; i++)
