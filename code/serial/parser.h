@@ -10,10 +10,13 @@
 
 using namespace std;
 
-class AlgParser
+typedef pair<int, int> Pos;
+typedef pair<Pos, Pos> NetPos;
+
+class Parser
 {
 public:
-    AlgParser(void) {}
+    Parser(void) {}
 
     // specify the parsing file name and then parse the file
     bool read(char *inputFileName);
@@ -38,24 +41,7 @@ public:
 
 private:
     int numHTilesm, numVTilesm, capacity, numNets;
-    typedef pair<int, int> Pos;
-    typedef pair<Pos, Pos> NetPos;
     vector<NetPos> netsPos;
-};
-
-class AlgTimer
-{
-public:
-    AlgTimer(void) {}
-
-    // Strat the timer
-    void Begin(void);
-
-    // Return the accumulated time in seconds
-    double End(void);
-
-private:
-    long begin_clock;
 };
 
 #endif

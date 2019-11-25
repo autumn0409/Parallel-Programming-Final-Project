@@ -1,7 +1,6 @@
 #include "parser.h"
-#include <ctime>
 
-bool AlgParser::read(char *inputFileName)
+bool Parser::read(char *inputFileName)
 {
     ifstream infile(inputFileName);
     if (!infile)
@@ -44,14 +43,4 @@ bool AlgParser::read(char *inputFileName)
     }
     infile.close();
     return true;
-}
-
-void AlgTimer::Begin(void)
-{
-    begin_clock = clock();
-}
-
-double AlgTimer::End(void)
-{
-    return ((double)(clock() - begin_clock) / (double)CLOCKS_PER_SEC);
 }

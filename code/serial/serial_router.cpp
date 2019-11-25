@@ -1,40 +1,43 @@
 #include <stack>
 #include <queue>
-#include <string>
-#include <iostream>
-#include <vector>
-#include <fstream>
-
 #include "parser.h"
+#include "timer.h"
 
 using namespace std;
-typedef pair<int, int> Pos;
 
 class Vertex
 {
-public:
+private:
     Pos position;
     double d;
     Vertex *pi;
     int index;
 
+public:
     Vertex();
-    Vertex(int x, int y);
+    Vertex(int x, int y, int gridNumX);
+
+    friend bool operator<(const Vertex &, const Vertex &);
+    friend bool operator>(const Vertex &, const Vertex &);
+    friend class Graph;
 };
 
 class Edge
 {
-public:
+private:
     int vertexIndex;
     double flowNum;
     double weight;
 
+public:
     Edge(int num);
+
+    friend class Graph;
 };
 
 class Graph
 {
-public:
+private:
     int gridNumX;
     int gridNumY;
     int capacity;
@@ -42,37 +45,33 @@ public:
     vector<vector<Edge>> adjList;
     vector<Vertex> vertices;
 
+    int getEdgeIndex(int listIndex, const Vertex *v);
+    void initSrc(const Pos &start);
+    void relax(Vertex &v, priority_queue<Vertex> &Q, int j);
+    void updateEdgeInfo(const Vertex *vNow);
+    void printRoutes(const Pos &start, const Pos &end, int i, ofstream &output);
+    int pairToIndex(const Pos &position);
+
+public:
     Graph();
     void setGraph(int gridNumX, int gridNumY, int capacity, int netCnt);
-    int getEdgeIndex(int listIndex, Vertex *v);
+    void routing(Parser &p, int i, ofstream &output);
 };
-
-int pairToIndex(const Pos &position);
-void initSrc(const Pos &start);
-void routing(AlgParser &p, int i, ofstream &output);
-void relax(Vertex &v, priority_queue<Vertex> &Q, int j);
-void printRoutes(const Pos &start, const Pos &end, int i, ofstream &output);
-
-bool operator<(const Vertex &, const Vertex &);
-bool operator>(const Vertex &, const Vertex &);
-
-Graph map;
 
 // main funtion
 int main(int argc, char **argv)
 {
-
-    AlgParser p;
-    AlgTimer t;
-
-    p.read(argv[1]);
-    t.Begin();
+    Parser p;
+    Timer t;
+    Graph map;
     ofstream output(argv[2]);
 
+    t.Begin();
+    p.read(argv[1]);
     map.setGraph(p.gNumHTiles(), p.gNumVTiles(), p.gCapacity(), p.gNumNets());
 
-    for (int i = 0; i < map.netCnt; i++)
-        routing(p, i, output);
+    for (int i = 0; i < p.gNumNets(); i++)
+        map.routing(p, i, output);
 
     cout << "Execution time: " << t.End() << "s" << endl;
     output.close();
@@ -85,12 +84,21 @@ Vertex::Vertex() : d(-1), pi(nullptr), index(-1)
     this->position.first = -1;
     this->position.second = -1;
 }
-
-Vertex::Vertex(int x, int y) : d(-1), pi(nullptr)
+Vertex::Vertex(int x, int y, int gridNumX) : d(-1), pi(nullptr)
 {
     this->position.first = x;
     this->position.second = y;
-    this->index = x + map.gridNumX * y;
+    this->index = x + gridNumX * y;
+}
+
+// Vertex operator overloading
+bool operator<(const Vertex &v1, const Vertex &v2)
+{
+    return v1.d > v2.d;
+}
+bool operator>(const Vertex &v1, const Vertex &v2)
+{
+    return v1.d < v2.d;
 }
 
 // Edge
@@ -102,7 +110,6 @@ Edge::Edge(int num) : vertexIndex(num), weight(0), flowNum(0)
 Graph::Graph() : gridNumX(0), gridNumY(0), capacity(0), netCnt(0)
 {
 }
-
 void Graph::setGraph(int gridNumX, int gridNumY, int capacity, int netCnt)
 {
     this->gridNumX = gridNumX;
@@ -115,7 +122,7 @@ void Graph::setGraph(int gridNumX, int gridNumY, int capacity, int netCnt)
         for (int i = 0; i < gridNumX; i++)
         {
             vector<Edge> edges;
-            Vertex aVertex(i, j);
+            Vertex aVertex(i, j, gridNumX);
             int index = i + gridNumX * j;
 
             if (i < gridNumX - 1) // The vertexPos now has a right edge.
@@ -147,8 +154,29 @@ void Graph::setGraph(int gridNumX, int gridNumY, int capacity, int netCnt)
         }
     }
 }
+void Graph::routing(Parser &p, int i, ofstream &output)
+{
+    Pos start = p.gNetStart(i);
+    Pos end = p.gNetEnd(i);
+    priority_queue<Vertex> Q;
+    int srcIndex = this->pairToIndex(start);
 
-int Graph::getEdgeIndex(int listIndex, Vertex *v)
+    this->initSrc(start);
+    Q.push(this->vertices[srcIndex]);
+
+    while (!Q.empty())
+    {
+        Vertex u = Q.top();
+        Q.pop();
+
+        int uDeg = this->adjList[u.index].size();
+        for (int j = 0; j < uDeg; j++)
+            this->relax(u, Q, j);
+    }
+
+    this->printRoutes(start, end, i, output);
+}
+int Graph::getEdgeIndex(int listIndex, const Vertex *v)
 {
     int i = 0;
     while (this->adjList[listIndex][i].vertexIndex != v->index)
@@ -156,89 +184,41 @@ int Graph::getEdgeIndex(int listIndex, Vertex *v)
 
     return i;
 }
-
-// global functions
-int pairToIndex(const Pos &position)
+void Graph::initSrc(const Pos &start)
 {
-    int x = position.first;
-    int y = position.second;
-    return x + map.gridNumX * y;
-}
-
-void initSrc(const Pos &start)
-{
-    for (int i = 0; i < map.vertices.size(); i++)
+    for (int i = 0; i < this->vertices.size(); i++)
     {
-        map.vertices[i].d = INT32_MAX;
-        map.vertices[i].pi = nullptr;
+        this->vertices[i].d = INT32_MAX;
+        this->vertices[i].pi = nullptr;
     }
-    map.vertices[pairToIndex(start)].d = 0;
+    this->vertices[this->pairToIndex(start)].d = 0;
 }
-
-void routing(AlgParser &p, int i, ofstream &output)
+void Graph::relax(Vertex &u, priority_queue<Vertex> &Q, int j)
 {
-    Pos start = p.gNetStart(i);
-    Pos end = p.gNetEnd(i);
-    priority_queue<Vertex> Q;
-    int srcIndex = pairToIndex(start);
+    double weight = this->adjList[u.index][j].weight;
 
-    initSrc(start);
-    Q.push(map.vertices[srcIndex]);
-
-    while (!Q.empty())
-    {
-        Vertex u = Q.top();
-        Q.pop();
-
-        int uDeg = map.adjList[u.index].size();
-        for (int j = 0; j < uDeg; j++)
-            relax(u, Q, j);
-    }
-
-    printRoutes(start, end, i, output);
-}
-
-void relax(Vertex &u, priority_queue<Vertex> &Q, int j)
-{
-    double weight = map.adjList[u.index][j].weight;
-
-    int vIndex = map.adjList[u.index][j].vertexIndex;
-    Vertex *v = &map.vertices[vIndex];
+    int vIndex = this->adjList[u.index][j].vertexIndex;
+    Vertex *v = &(this->vertices[vIndex]);
 
     if (v->d > u.d + weight)
     {
         v->d = u.d + weight;
-        v->pi = &map.vertices[u.index];
-        Q.push(map.vertices[vIndex]);
+        v->pi = &(this->vertices[u.index]);
+        Q.push(this->vertices[vIndex]);
     }
 }
-
-void printRoutes(const Pos &start, const Pos &end, int i, ofstream &output)
+void Graph::printRoutes(const Pos &start, const Pos &end, int i, ofstream &output)
 {
     stack<Pos> S;
     int routesCnt = 0;
-    int endIndex = pairToIndex(end);
+    int endIndex = this->pairToIndex(end);
 
-    Vertex *vNow = &map.vertices[endIndex];
+    Vertex *vNow = &(this->vertices[endIndex]);
     S.push(vNow->position);
 
     while (vNow->pi != nullptr)
     {
-        // vNow's egde index in vNow->pi's list
-        int vNow_edgeIndex = map.getEdgeIndex(vNow->pi->index, vNow);
-
-        // vNow->pi's edge index in vNow's list
-        int vNowPi_edgeIndex = map.getEdgeIndex(vNow->index, vNow->pi);
-
-        // derive new flowNum & new weight
-        double newFlowNum = map.adjList[vNow->pi->index][vNow_edgeIndex].flowNum + 1;
-        double newWeight = newFlowNum / map.capacity;
-
-        // update flowNum and weight
-        map.adjList[vNow->pi->index][vNow_edgeIndex].weight = newWeight;
-        map.adjList[vNow->index][vNowPi_edgeIndex].weight = newWeight;
-        map.adjList[vNow->pi->index][vNow_edgeIndex].flowNum = newFlowNum;
-        map.adjList[vNow->index][vNowPi_edgeIndex].flowNum = newFlowNum;
+        this->updateEdgeInfo(vNow);
 
         S.push(vNow->pi->position);
         vNow = vNow->pi;
@@ -254,13 +234,27 @@ void printRoutes(const Pos &start, const Pos &end, int i, ofstream &output)
         output << S.top().first << " " << S.top().second << endl;
     }
 }
-
-bool operator<(const Vertex &v1, const Vertex &v2)
+void Graph::updateEdgeInfo(const Vertex *vNow)
 {
-    return v1.d > v2.d;
+    // vNow's egde index in vNow->pi's list
+    int vNow_edgeIndex = this->getEdgeIndex(vNow->pi->index, vNow);
+
+    // vNow->pi's edge index in vNow's list
+    int vNowPi_edgeIndex = this->getEdgeIndex(vNow->index, vNow->pi);
+
+    // derive new flowNum & new weight
+    double newFlowNum = this->adjList[vNow->pi->index][vNow_edgeIndex].flowNum + 1;
+    double newWeight = newFlowNum / this->capacity;
+
+    // update flowNum and weight
+    this->adjList[vNow->pi->index][vNow_edgeIndex].weight = newWeight;
+    this->adjList[vNow->index][vNowPi_edgeIndex].weight = newWeight;
+    this->adjList[vNow->pi->index][vNow_edgeIndex].flowNum = newFlowNum;
+    this->adjList[vNow->index][vNowPi_edgeIndex].flowNum = newFlowNum;
 }
-
-bool operator>(const Vertex &v1, const Vertex &v2)
+int Graph::pairToIndex(const Pos &position)
 {
-    return v1.d < v2.d;
+    int x = position.first;
+    int y = position.second;
+    return x + this->gridNumX * y;
 }
