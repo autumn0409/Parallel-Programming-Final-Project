@@ -6,6 +6,7 @@
 #include <iostream>
 #include <utility>
 #include <vector>
+#include <map>
 #include <fstream>
 
 using namespace std;
@@ -39,9 +40,13 @@ public:
     // return the ending x and y position for the net
     pair<int, int> gNetEnd(int id) { return netsPos[id].second; }
 
+    // return net id
+    int getNetId(const Pos &start, const Pos &end);
+
 private:
     int numHTilesm, numVTilesm, capacity, numNets;
     vector<NetPos> netsPos;
+    multimap<NetPos, int> netPosIdPair;
 };
 
 #endif

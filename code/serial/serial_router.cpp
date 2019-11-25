@@ -49,12 +49,12 @@ private:
     void initSrc(const Pos &start);
     void relax(Vertex &v, priority_queue<Vertex> &Q, int j);
     void updateEdgeInfo(const Vertex *vNow);
-    void printRoutes(const Pos &start, const Pos &end, int i, ofstream &output);
     int pairToIndex(const Pos &position);
 
 public:
     Graph(int gridNumX, int gridNumY, int capacity, int netCnt);
-    void routing(Parser &p, int i, ofstream &output);
+    stack<Pos> routing(const Pos &start, const Pos &end);
+    void printRoutes(const Pos &start, const Pos &end, stack<Pos> &routingPath, Parser &p, ofstream &output);
 };
 
 // main funtion
@@ -69,7 +69,12 @@ int main(int argc, char **argv)
     Graph map(p.gNumHTiles(), p.gNumVTiles(), p.gCapacity(), p.gNumNets());
 
     for (int i = 0; i < p.gNumNets(); i++)
-        map.routing(p, i, output);
+    {
+        Pos start = p.gNetStart(i);
+        Pos end = p.gNetEnd(i);
+        stack<Pos> routingPath = map.routing(start, end);
+        map.printRoutes(start, end, routingPath, p, output);
+    }
 
     cout << "Execution time: " << t.End() << "s" << endl;
     output.close();
@@ -144,10 +149,9 @@ Graph::Graph(int gridNumX, int gridNumY, int capacity, int netCnt) : gridNumX(gr
         }
     }
 }
-void Graph::routing(Parser &p, int i, ofstream &output)
+stack<Pos> Graph::routing(const Pos &start, const Pos &end)
 {
-    Pos start = p.gNetStart(i);
-    Pos end = p.gNetEnd(i);
+    // Dijkstra
     priority_queue<Vertex> Q;
     int srcIndex = this->pairToIndex(start);
 
@@ -164,7 +168,32 @@ void Graph::routing(Parser &p, int i, ofstream &output)
             this->relax(u, Q, j);
     }
 
-    this->printRoutes(start, end, i, output);
+    // store path and update edge weight and flowNum
+    stack<Pos> routingPath;
+    int endIndex = this->pairToIndex(end);
+    Vertex *vNow = &(this->vertices[endIndex]);
+
+    routingPath.push(vNow->position);
+    while (vNow->pi != nullptr)
+    {
+        this->updateEdgeInfo(vNow);
+        routingPath.push(vNow->pi->position);
+        vNow = vNow->pi;
+    }
+
+    return routingPath;
+}
+void Graph::printRoutes(const Pos &start, const Pos &end, stack<Pos> &routingPath, Parser &p, ofstream &output)
+{
+    int routingDist = routingPath.size() - 1;
+    output << p.getNetId(start, end) << " " << routingDist << endl;
+
+    while (routingPath.size() > 1)
+    {
+        output << routingPath.top().first << " " << routingPath.top().second << " ";
+        routingPath.pop();
+        output << routingPath.top().first << " " << routingPath.top().second << endl;
+    }
 }
 int Graph::getEdgeIndex(int listIndex, const Vertex *v)
 {
@@ -195,33 +224,6 @@ void Graph::relax(Vertex &u, priority_queue<Vertex> &Q, int j)
         v->d = u.d + weight;
         v->pi = &(this->vertices[u.index]);
         Q.push(this->vertices[vIndex]);
-    }
-}
-void Graph::printRoutes(const Pos &start, const Pos &end, int i, ofstream &output)
-{
-    stack<Pos> S;
-    int routesCnt = 0;
-    int endIndex = this->pairToIndex(end);
-
-    Vertex *vNow = &(this->vertices[endIndex]);
-    S.push(vNow->position);
-
-    while (vNow->pi != nullptr)
-    {
-        this->updateEdgeInfo(vNow);
-
-        S.push(vNow->pi->position);
-        vNow = vNow->pi;
-
-        routesCnt++;
-    }
-
-    output << i << " " << routesCnt << endl;
-    while (S.size() > 1)
-    {
-        output << S.top().first << " " << S.top().second << " ";
-        S.pop();
-        output << S.top().first << " " << S.top().second << endl;
     }
 }
 void Graph::updateEdgeInfo(const Vertex *vNow)
