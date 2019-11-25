@@ -105,12 +105,13 @@ bool operator>(const Vertex &v1, const Vertex &v2)
 }
 
 // Edge
-Edge::Edge(int num) : vertexIndex(num), weight(0), flowNum(0)
+Edge::Edge(int num) : vertexIndex(num), weight(1), flowNum(0)
 {
 }
 
 // Graph
-Graph::Graph(int gridNumX, int gridNumY, int capacity, int netCnt) : gridNumX(gridNumX), gridNumY(gridNumY), capacity(capacity), netCnt(netCnt)
+Graph::Graph(int gridNumX, int gridNumY, int capacity, int netCnt)
+    : gridNumX(gridNumX), gridNumY(gridNumY), capacity(capacity), netCnt(netCnt)
 {
     for (int j = 0; j < gridNumY; j++)
     {
@@ -236,7 +237,7 @@ void Graph::updateEdgeInfo(const Vertex *vNow)
 
     // derive new flowNum & new weight
     double newFlowNum = this->adjList[vNow->pi->index][vNow_edgeIndex].flowNum + 1;
-    double newWeight = newFlowNum / this->capacity;
+    double newWeight = 1 + newFlowNum / this->capacity;
 
     // update flowNum and weight
     this->adjList[vNow->pi->index][vNow_edgeIndex].weight = newWeight;

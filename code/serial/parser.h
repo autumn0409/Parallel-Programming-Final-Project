@@ -8,11 +8,16 @@
 #include <vector>
 #include <map>
 #include <fstream>
+#include <math.h>
 
 using namespace std;
 
 typedef pair<int, int> Pos;
 typedef pair<Pos, Pos> NetPos;
+
+bool cmp(const NetPos &n1, const NetPos &n2);
+int boundingSize(const Pos &start, const Pos &end);
+int distance(const Pos &start, const Pos &end);
 
 class Parser
 {

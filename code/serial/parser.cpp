@@ -1,4 +1,5 @@
 #include "parser.h"
+#include <algorithm>
 
 bool Parser::read(char *inputFileName)
 {
@@ -43,7 +44,7 @@ bool Parser::read(char *inputFileName)
         netsPos[id] = newNet;
         netPosIdPair.insert(pair<NetPos, int>(newNet, id));
     }
-
+    sort(netsPos.begin(), netsPos.end(), cmp);
     infile.close();
     return true;
 }
@@ -62,4 +63,24 @@ int Parser::getNetId(const Pos &start, const Pos &end)
     }
 
     return targetId;
+}
+
+bool cmp(const NetPos &n1, const NetPos &n2)
+{
+    int boundingSize1 = boundingSize(n1.first, n1.second);
+    int boundingSize2 = boundingSize(n2.first, n2.second);
+    if (boundingSize1 == boundingSize2)
+        return distance(n1.first, n1.second) < distance(n2.first, n2.second);
+    else
+        return boundingSize1 < boundingSize2;
+}
+
+int boundingSize(const Pos &start, const Pos &end)
+{
+    return abs(start.first - end.first) * abs(start.second - end.second);
+}
+
+int distance(const Pos &start, const Pos &end)
+{
+    return pow(start.first - end.first, 2) + pow(start.second - end.second, 2);
 }
