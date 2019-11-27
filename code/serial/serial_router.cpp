@@ -1,5 +1,6 @@
 #include <stack>
-#include <queue>
+#include <algorithm>
+#include <set>
 #include "../util/parser.h"
 #include "../util/timer.h"
 
@@ -10,10 +11,11 @@ class Vertex
     friend class Graph;
     friend bool operator<(const Vertex &, const Vertex &);
     friend bool operator>(const Vertex &, const Vertex &);
+    friend bool operator==(const Vertex &v1, const Vertex &v2);
 
 private:
     Pos position;
-    double d;
+    double g, f;
     Vertex *pi;
     int index;
 
@@ -46,10 +48,11 @@ private:
     vector<Vertex> vertices;
 
     int getEdgeIndex(int listIndex, const Vertex *v);
-    void initSrc(const Pos &start);
-    void relax(Vertex &v, priority_queue<Vertex> &Q, int j);
+    void initSrc(const Pos &start, const Pos &end);
+    void relax(Vertex &v, int j, const Pos &end, vector<Vertex> &openSet, set<Vertex> &closedSet);
     void updateEdgeInfo(const Vertex *vNow);
     int pairToIndex(const Pos &position);
+    int calcHeuristic(const Pos &posNow, const Pos &goal);
 
 public:
     Graph(int gridNumX, int gridNumY, int capacity, int netCnt);
@@ -82,12 +85,12 @@ int main(int argc, char **argv)
 }
 
 // Vertex
-Vertex::Vertex() : d(-1), pi(nullptr), index(-1)
+Vertex::Vertex() : g(-1), f(-1), pi(nullptr), index(-1)
 {
     this->position.first = -1;
     this->position.second = -1;
 }
-Vertex::Vertex(int x, int y, int gridNumX) : d(-1), pi(nullptr)
+Vertex::Vertex(int x, int y, int gridNumX) : g(-1), f(-1), pi(nullptr)
 {
     this->position.first = x;
     this->position.second = y;
@@ -97,11 +100,15 @@ Vertex::Vertex(int x, int y, int gridNumX) : d(-1), pi(nullptr)
 // Vertex operator overloading
 bool operator<(const Vertex &v1, const Vertex &v2)
 {
-    return v1.d > v2.d;
+    return v1.f < v2.f;
 }
 bool operator>(const Vertex &v1, const Vertex &v2)
 {
-    return v1.d < v2.d;
+    return v1.f > v2.f;
+}
+bool operator==(const Vertex &v1, const Vertex &v2)
+{
+    return v1.index == v2.index;
 }
 
 // Edge
@@ -152,21 +159,27 @@ Graph::Graph(int gridNumX, int gridNumY, int capacity, int netCnt)
 }
 stack<Pos> Graph::routing(const Pos &start, const Pos &end)
 {
-    // Dijkstra
-    priority_queue<Vertex> Q;
+    // A* search algorithm
+    set<Vertex> closedSet;
+    vector<Vertex> openSet;
+
     int srcIndex = this->pairToIndex(start);
+    this->initSrc(start, end);
+    openSet.push_back(this->vertices[srcIndex]);
 
-    this->initSrc(start);
-    Q.push(this->vertices[srcIndex]);
-
-    while (!Q.empty())
+    while (!openSet.empty())
     {
-        Vertex u = Q.top();
-        Q.pop();
+        Vertex u = *min_element(openSet.begin(), openSet.end());                 // extract Vertex who's f is minimum from openSet
+        openSet.erase(remove(openSet.begin(), openSet.end(), u), openSet.end()); // remove u from openSet
+
+        if (u.position == end)
+            break;
+
+        closedSet.insert(u);
 
         int uDeg = this->adjList[u.index].size();
         for (int j = 0; j < uDeg; j++)
-            this->relax(u, Q, j);
+            this->relax(u, j, end, openSet, closedSet);
     }
 
     // store path and update edge weight and flowNum
@@ -204,27 +217,42 @@ int Graph::getEdgeIndex(int listIndex, const Vertex *v)
 
     return i;
 }
-void Graph::initSrc(const Pos &start)
+void Graph::initSrc(const Pos &start, const Pos &end)
 {
     for (int i = 0; i < this->vertices.size(); i++)
     {
-        this->vertices[i].d = INT32_MAX;
+        this->vertices[i].g = INT32_MAX;
+        this->vertices[i].f = INT32_MAX;
         this->vertices[i].pi = nullptr;
     }
-    this->vertices[this->pairToIndex(start)].d = 0;
+    int h = this->calcHeuristic(start, end);
+    this->vertices[this->pairToIndex(start)].g = 0;
+    this->vertices[this->pairToIndex(start)].f = h;
 }
-void Graph::relax(Vertex &u, priority_queue<Vertex> &Q, int j)
+void Graph::relax(Vertex &u, int j, const Pos &end, vector<Vertex> &openSet, set<Vertex> &closedSet)
 {
     double weight = this->adjList[u.index][j].weight;
 
     int vIndex = this->adjList[u.index][j].vertexIndex;
     Vertex *v = &(this->vertices[vIndex]);
 
-    if (v->d > u.d + weight)
+    if (closedSet.find(*v) != closedSet.end()) // v is in the closedSet
+        return;
+
+    bool tentativeIsBetter;
+    if (find(openSet.begin(), openSet.end(), *v) == openSet.end()) // v is not in openSet
+        tentativeIsBetter = true;
+    else if (v->g > u.g + weight)
+        tentativeIsBetter = true;
+    else
+        tentativeIsBetter = false;
+
+    if (tentativeIsBetter)
     {
-        v->d = u.d + weight;
         v->pi = &(this->vertices[u.index]);
-        Q.push(this->vertices[vIndex]);
+        v->g = u.g + weight;
+        v->f = v->g + calcHeuristic(v->position, end);
+        openSet.push_back(this->vertices[vIndex]);
     }
 }
 void Graph::updateEdgeInfo(const Vertex *vNow)
@@ -250,4 +278,8 @@ int Graph::pairToIndex(const Pos &position)
     int x = position.first;
     int y = position.second;
     return x + this->gridNumX * y;
+}
+int Graph::calcHeuristic(const Pos &posNow, const Pos &goal)
+{
+    return abs(posNow.first - goal.first) + abs(posNow.second - goal.second);
 }
