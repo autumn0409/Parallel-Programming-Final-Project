@@ -1,5 +1,19 @@
 # Parallel-Programming-Project
 
+(The compile and run script only works in the linux environment)
+
+## Compile
+
+* Serial code:
+
+`./compile.sh serial`
+
+## Run
+
+* Serial code:
+
+`./run.sh serial [input size]` (ex: `./run.sh serial 20`)
+
 ## Reference
 
 * [Global routing ppt](http://cc.ee.ntu.edu.tw/~eda/Course/IntroEDA06/LN/routing1.pdf)
