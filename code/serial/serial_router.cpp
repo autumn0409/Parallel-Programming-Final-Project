@@ -183,7 +183,7 @@ stack<Pos> Graph::routing(const Pos &start, const Pos &end)
 
         closedSet.insert(u);
 
-        int uDeg = this->adjList[u.index].size();
+        int uDeg = this->adjList[u.index].size(); // # of Vertex around u
         for (int j = 0; j < uDeg; j++)
             this->relax(u, j, end, openSet, closedSet);
     }
@@ -225,20 +225,24 @@ int Graph::getEdgeIndex(int listIndex, const Vertex *v)
 }
 void Graph::initSrc(const Pos &start, const Pos &end)
 {
+    // initialize all Vertex's g, f and pi in the map
     for (int i = 0; i < this->vertices.size(); i++)
     {
         this->vertices[i].g = INT32_MAX;
         this->vertices[i].f = INT32_MAX;
         this->vertices[i].pi = nullptr;
     }
+    // initialize source Vertex's g and f
     int h = this->calcHeuristic(start, end);
     this->vertices[this->pairToIndex(start)].g = 0;
     this->vertices[this->pairToIndex(start)].f = h;
 }
 void Graph::relax(Vertex &u, int j, const Pos &end, set<Vertex> &openSet, set<Vertex> &closedSet)
 {
+    // get the weight of the edge between u and v
     double weight = this->adjList[u.index][j].weight;
 
+    // get Vertex v from u and j
     int vIndex = this->adjList[u.index][j].vertexIndex;
     Vertex *v = &(this->vertices[vIndex]);
 
