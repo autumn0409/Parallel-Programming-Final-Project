@@ -49,7 +49,7 @@ private:
 
     int getEdgeIndex(int listIndex, const Vertex *v);
     void initSrc(const Pos &start, const Pos &end);
-    void relax(Vertex &v, int j, const Pos &end, vector<Vertex> &openSet, set<Vertex> &closedSet);
+    void relax(Vertex &v, int j, const Pos &end, set<Vertex> &openSet, set<Vertex> &closedSet);
     void updateEdgeInfo(const Vertex *vNow);
     int pairToIndex(const Pos &position);
     int calcHeuristic(const Pos &posNow, const Pos &goal);
@@ -100,11 +100,17 @@ Vertex::Vertex(int x, int y, int gridNumX) : g(-1), f(-1), pi(nullptr)
 // Vertex operator overloading
 bool operator<(const Vertex &v1, const Vertex &v2)
 {
-    return v1.f < v2.f;
+    if (v1.f != v2.f)
+        return v1.f < v2.f;
+    else
+        return v1.index < v2.index;
 }
 bool operator>(const Vertex &v1, const Vertex &v2)
 {
-    return v1.f > v2.f;
+    if (v1.f != v2.f)
+        return v1.f > v2.f;
+    else
+        return v1.index > v2.index;
 }
 bool operator==(const Vertex &v1, const Vertex &v2)
 {
@@ -161,16 +167,16 @@ stack<Pos> Graph::routing(const Pos &start, const Pos &end)
 {
     // A* search algorithm
     set<Vertex> closedSet;
-    vector<Vertex> openSet;
+    set<Vertex> openSet;
 
     int srcIndex = this->pairToIndex(start);
     this->initSrc(start, end);
-    openSet.push_back(this->vertices[srcIndex]);
+    openSet.insert(this->vertices[srcIndex]);
 
     while (!openSet.empty())
     {
-        Vertex u = *min_element(openSet.begin(), openSet.end());                 // extract Vertex who's f is minimum from openSet
-        openSet.erase(remove(openSet.begin(), openSet.end(), u), openSet.end()); // remove u from openSet
+        Vertex u = *openSet.begin();    // extract Vertex who's f is minimum from openSet
+        openSet.erase(openSet.begin()); // remove u from openSet
 
         if (u.position == end)
             break;
@@ -229,7 +235,7 @@ void Graph::initSrc(const Pos &start, const Pos &end)
     this->vertices[this->pairToIndex(start)].g = 0;
     this->vertices[this->pairToIndex(start)].f = h;
 }
-void Graph::relax(Vertex &u, int j, const Pos &end, vector<Vertex> &openSet, set<Vertex> &closedSet)
+void Graph::relax(Vertex &u, int j, const Pos &end, set<Vertex> &openSet, set<Vertex> &closedSet)
 {
     double weight = this->adjList[u.index][j].weight;
 
@@ -240,7 +246,7 @@ void Graph::relax(Vertex &u, int j, const Pos &end, vector<Vertex> &openSet, set
         return;
 
     bool tentativeIsBetter;
-    if (find(openSet.begin(), openSet.end(), *v) == openSet.end()) // v is not in openSet
+    if (openSet.find(*v) == openSet.end()) // v is not in the openSet
         tentativeIsBetter = true;
     else if (v->g > u.g + weight)
         tentativeIsBetter = true;
@@ -252,7 +258,7 @@ void Graph::relax(Vertex &u, int j, const Pos &end, vector<Vertex> &openSet, set
         v->pi = &(this->vertices[u.index]);
         v->g = u.g + weight;
         v->f = v->g + calcHeuristic(v->position, end);
-        openSet.push_back(this->vertices[vIndex]);
+        openSet.insert(this->vertices[vIndex]);
     }
 }
 void Graph::updateEdgeInfo(const Vertex *vNow)
