@@ -57,10 +57,15 @@ private:
 public:
     Graph(int gridNumX, int gridNumY, int capacity, int netCnt);
     stack<Pos> routing(const Pos &start, const Pos &end);
-    void printRoutes(const Pos &start, const Pos &end, stack<Pos> &routingPath, Parser &p, ofstream &output);
 };
 
-// main funtion
+void printRoutes(const Pos &start, const Pos &end, stack<Pos> &routingPath, Parser &p, ofstream &output);
+
+
+
+
+
+// ================ main funtion =================
 int main(int argc, char **argv)
 {
     Parser p;
@@ -76,13 +81,18 @@ int main(int argc, char **argv)
         Pos start = p.gNetStart(i);
         Pos end = p.gNetEnd(i);
         stack<Pos> routingPath = map.routing(start, end);
-        map.printRoutes(start, end, routingPath, p, output);
+        printRoutes(start, end, routingPath, p, output);
     }
 
     cout << "Execution time: " << t.End() << "s" << endl;
     output.close();
     return 0;
 }
+// =================================================
+
+
+
+
 
 // Vertex
 Vertex::Vertex() : g(-1), f(-1), pi(nullptr), index(-1)
@@ -203,40 +213,6 @@ stack<Pos> Graph::routing(const Pos &start, const Pos &end)
 
     return routingPath;
 }
-void Graph::printRoutes(const Pos &start, const Pos &end, stack<Pos> &routingPath, Parser &p, ofstream &output)
-{
-    int routingDist = routingPath.size() - 1;
-    output << p.getNetId(start, end) << " " << routingDist << endl;
-
-    while (routingPath.size() > 1)
-    {
-        output << routingPath.top().first << " " << routingPath.top().second << " ";
-        routingPath.pop();
-        output << routingPath.top().first << " " << routingPath.top().second << endl;
-    }
-}
-int Graph::getEdgeIndex(int listIndex, const Vertex *v)
-{
-    int i = 0;
-    while (this->adjList[listIndex][i].vertexIndex != v->index)
-        i++;
-
-    return i;
-}
-void Graph::initSrc(const Pos &start, const Pos &end)
-{
-    // initialize all Vertex's g, f and pi in the map
-    for (int i = 0; i < this->vertices.size(); i++)
-    {
-        this->vertices[i].g = INT32_MAX;
-        this->vertices[i].f = INT32_MAX;
-        this->vertices[i].pi = nullptr;
-    }
-    // initialize source Vertex's g and f
-    int h = this->calcHeuristic(start, end);
-    this->vertices[this->pairToIndex(start)].g = 0;
-    this->vertices[this->pairToIndex(start)].f = h;
-}
 void Graph::relax(Vertex &u, int j, const Pos &end, set<Vertex> &openSet, set<Vertex> &closedSet)
 {
     // get the weight of the edge between u and v
@@ -265,6 +241,28 @@ void Graph::relax(Vertex &u, int j, const Pos &end, set<Vertex> &openSet, set<Ve
         openSet.insert(this->vertices[vIndex]);
     }
 }
+int Graph::getEdgeIndex(int listIndex, const Vertex *v)
+{
+    int i = 0;
+    while (this->adjList[listIndex][i].vertexIndex != v->index)
+        i++;
+
+    return i;
+}
+void Graph::initSrc(const Pos &start, const Pos &end)
+{
+    // initialize all Vertex's g, f and pi in the map
+    for (int i = 0; i < this->vertices.size(); i++)
+    {
+        this->vertices[i].g = INT32_MAX;
+        this->vertices[i].f = INT32_MAX;
+        this->vertices[i].pi = nullptr;
+    }
+    // initialize source Vertex's g and f
+    int h = this->calcHeuristic(start, end);
+    this->vertices[this->pairToIndex(start)].g = 0;
+    this->vertices[this->pairToIndex(start)].f = h;
+}
 void Graph::updateEdgeInfo(const Vertex *vNow)
 {
     // vNow's egde index in vNow->pi's list
@@ -292,4 +290,18 @@ int Graph::pairToIndex(const Pos &position)
 int Graph::calcHeuristic(const Pos &posNow, const Pos &goal)
 {
     return abs(posNow.first - goal.first) + abs(posNow.second - goal.second);
+}
+
+// global function
+void printRoutes(const Pos &start, const Pos &end, stack<Pos> &routingPath, Parser &p, ofstream &output)
+{
+    int routingDist = routingPath.size() - 1;
+    output << p.getNetId(start, end) << " " << routingDist << endl;
+
+    while (routingPath.size() > 1)
+    {
+        output << routingPath.top().first << " " << routingPath.top().second << " ";
+        routingPath.pop();
+        output << routingPath.top().first << " " << routingPath.top().second << endl;
+    }
 }
