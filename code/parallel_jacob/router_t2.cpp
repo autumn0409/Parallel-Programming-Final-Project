@@ -80,23 +80,34 @@ int main(int argc, char **argv)
     Timer t;
     ofstream output(argv[2]);
 	output.close();
-	pthread_t th[4];
+	pthread_t t1, t2, t3, t4;
 	pthread_mutex_init(&mutex, NULL);
-	thread_data data[4];
+	thread_data data1, data2, data3, data4;
 
+	data1.rank = 0;
+	data1.inputName = argv[1];
+	data1.outputName = argv[2];
+	data2.rank = 1;
+	data2.inputName = argv[1];
+	data2.outputName = argv[2];
+	data3.rank = 2;
+	data3.inputName = argv[1];
+	data3.outputName = argv[2];
+	data4.rank = 3;
+	data4.inputName = argv[1];
+	data4.outputName = argv[2];
+	
     t.Begin();
-
-	for(int i=0;i<4;i++){
-		data[i].rank = i;
-		data[i].inputName = argv[1];
-		data[i].outputName = argv[2];
-		pthread_create(&th[i], NULL, Thread_routing, (void *)&data[i]);
-	}
 	
-	for(int i=0;i<4;i++){
-		pthread_join(th[i], NULL);
-	}
+	pthread_create(&t1, NULL, Thread_routing, (void *)&data1);
+	pthread_create(&t2, NULL, Thread_routing, (void *)&data2);
+	pthread_create(&t3, NULL, Thread_routing, (void *)&data3);
+	pthread_create(&t4, NULL, Thread_routing, (void *)&data4);
 	
+	pthread_join(t1, NULL);
+   	pthread_join(t2, NULL);
+	pthread_join(t3, NULL);
+   	pthread_join(t4, NULL);
 	pthread_mutex_destroy(&mutex);
     cout << "Execution time: " << t.End() << "s" << endl;
     return 0;
@@ -120,12 +131,21 @@ void* Thread_routing(void *param) {
 	write.open(outputName, ios::app);	
 	Graph map(p.gNumHTiles(), p.gNumVTiles(), p.gCapacity(), p.gNumNets());
 	
+	if (rank == 0){
+		startI = 0;
+		endI = p.gNumNets() * 3 / 10;
+	}
+	if (rank == 1){
+		startI = p.gNumNets() * 3 / 10;
+		endI = p.gNumNets() * 6 / 10;
+	}
+	if (rank == 2){
+		startI = p.gNumNets() * 6 / 10;
+		endI = p.gNumNets() * 9 / 10;
+	}
 	if (rank == 3){
 		startI = p.gNumNets() * 9 / 10;
 		endI = p.gNumNets();
-	}else{
-		startI = rank * p.gNumNets() * 3 / 10;
-		endI = (rank + 1) * p.gNumNets() * 3 / 10;
 	}
 	
 	for (int i = startI; i < endI; i++)
@@ -137,7 +157,7 @@ void* Thread_routing(void *param) {
 		printRoutes(start, end, routingPath, p, write);
 		pthread_mutex_unlock(&mutex);
 	}
-	
+
 	write.close();
 	return NULL;
 }
