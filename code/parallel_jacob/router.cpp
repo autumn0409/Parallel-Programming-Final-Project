@@ -78,29 +78,29 @@ Parser p;
 // ================ main funtion =================
 int main(int argc, char **argv)
 {
-	int thread_count = atoi(argv[3]);
+    int thread_count = atoi(argv[3]);
     Timer t;
     ofstream output(argv[2]);
-	output.close();
-	pthread_t th[thread_count];
-	pthread_mutex_init(&mutex, NULL);
-	thread_data data[thread_count];	
-	p.read(argv[1]);
+    output.close();
+    pthread_t th[thread_count];
+    pthread_mutex_init(&mutex, NULL);
+    thread_data data[thread_count];	
 	
     t.Begin();
 
-	for(int i = 0; i < thread_count; i++){
-		data[i].rank = i;
-		data[i].threadCount = thread_count;
-		data[i].outputName = argv[2];
-		pthread_create(&th[i], NULL, Thread_routing, (void *)&data[i]);
-	}
+    p.read(argv[1]);
+    for(int i = 0; i < thread_count; i++){
+        data[i].rank = i;
+        data[i].threadCount = thread_count;
+        data[i].outputName = argv[2];
+        pthread_create(&th[i], NULL, Thread_routing, (void *)&data[i]);
+    }
 	
-	for(int i = 0;i < thread_count; i++){
-		pthread_join(th[i], NULL);
-	}
+    for(int i = 0;i < thread_count; i++){
+        pthread_join(th[i], NULL);
+    }
 	
-	pthread_mutex_destroy(&mutex);
+    pthread_mutex_destroy(&mutex);
     cout << "Execution time: " << t.End() << "s" << endl;
     return 0;
 }
