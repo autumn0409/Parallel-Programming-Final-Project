@@ -12,7 +12,6 @@ pthread_mutex_t mutex;
 typedef struct thread_data {
    int rank;
    int threadCount;
-   char* inputName;
    char* outputName;
 } thread_data;
 
@@ -73,6 +72,7 @@ void printRoutes(const Pos &start, const Pos &end, stack<Pos> &routingPath, Pars
 
 void* Thread_routing(void *param);
 
+Parser p;
 
 
 // ================ main funtion =================
@@ -84,14 +84,14 @@ int main(int argc, char **argv)
 	output.close();
 	pthread_t th[thread_count];
 	pthread_mutex_init(&mutex, NULL);
-	thread_data data[thread_count];
-
+	thread_data data[thread_count];	
+	p.read(argv[1]);
+	
     t.Begin();
 
 	for(int i = 0; i < thread_count; i++){
 		data[i].rank = i;
 		data[i].threadCount = thread_count;
-		data[i].inputName = argv[1];
 		data[i].outputName = argv[2];
 		pthread_create(&th[i], NULL, Thread_routing, (void *)&data[i]);
 	}
@@ -114,18 +114,15 @@ void* Thread_routing(void *param) {
 
 	int rank = data->rank;
 	int threadCount = data->threadCount;
-	char* inputName = data->inputName;
 	char* outputName = data->outputName;
-	Parser p;
 	int startI, endI;
 	
-	p.read(inputName);
 	ofstream write;
 	write.open(outputName, ios::app);	
 	Graph map(p.gNumHTiles(), p.gNumVTiles(), p.gCapacity(), p.gNumNets());
 	
-	for (int i = rank * p.gNumNets() / threadCount; i < (rank + 1) * p.gNumNets() / threadCount; i++)
-//	for (int i = 0 + rank; i < p.gNumNets(); i = i + threadCount)
+//	for (int i = rank * p.gNumNets() / threadCount; i < (rank + 1) * p.gNumNets() / threadCount; i++)
+	for (int i = 0 + rank; i < p.gNumNets(); i = i + threadCount)
 	{	
 		Pos start = p.gNetStart(i);
 		Pos end = p.gNetEnd(i);
