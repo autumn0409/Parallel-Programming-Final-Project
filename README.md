@@ -8,11 +8,23 @@
 
 `./compile.sh serial`
 
+* Parallel code:
+
+`./compile_jacob.sh parallel`
+
 ## Run
 
 * Serial code:
 
 `./run.sh serial [input size]` (ex: `./run.sh serial 20`)
+
+* Parallel code:
+
+`./run.sh parallel [input size] [thread count]` (ex: `./run.sh parallel 60 4`)
+
+* Serial + Parallel code:
+
+`./run_for.sh [input size] [thread count]` (ex: `./run_for.sh 60 4`)
 
 ## Reference
 
