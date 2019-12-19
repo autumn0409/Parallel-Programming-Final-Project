@@ -1,4 +1,5 @@
 #include <stack>
+#include <vector>
 #include <algorithm>
 #include <set>
 #include "../util/parser.h"
@@ -9,10 +10,11 @@ using namespace std;
 
 pthread_mutex_t mutex;
 
-typedef struct thread_data {
-   int rank;
-   int threadCount;
-   char* outputName;
+typedef struct thread_data
+{
+    int rank;
+    int threadCount;
+    char *outputName;
 } thread_data;
 
 class Vertex
@@ -68,12 +70,11 @@ public:
     stack<Pos> routing(const Pos &start, const Pos &end);
 };
 
-void printRoutes(const Pos &start, const Pos &end, stack<Pos> &routingPath, Parser &p, ofstream &output);
+void printRoutes(stack<Pos> &routingPath, Parser &p, ofstream &output);
 
-void* Thread_routing(void *param);
+void *Thread_routing(void *param);
 
 Parser p;
-
 
 // ================ main funtion =================
 int main(int argc, char **argv)
@@ -84,56 +85,61 @@ int main(int argc, char **argv)
     output.close();
     pthread_t th[thread_count];
     pthread_mutex_init(&mutex, NULL);
-    thread_data data[thread_count];	
-	
+    thread_data data[thread_count];
+
     t.Begin();
 
     p.read(argv[1]);
-    for(int i = 0; i < thread_count; i++){
+    for (int i = 0; i < thread_count; i++)
+    {
         data[i].rank = i;
         data[i].threadCount = thread_count;
         data[i].outputName = argv[2];
         pthread_create(&th[i], NULL, Thread_routing, (void *)&data[i]);
     }
-	
-    for(int i = 0;i < thread_count; i++){
+
+    for (int i = 0; i < thread_count; i++)
+    {
         pthread_join(th[i], NULL);
     }
-	
+
     pthread_mutex_destroy(&mutex);
     cout << "Execution time: " << t.End() << "s" << endl;
     return 0;
 }
 // =================================================
 
-
-
 // Thread_function
-void* Thread_routing(void *param) {
-	thread_data *data=(thread_data *)param;
+void *Thread_routing(void *param)
+{
+    thread_data *data = (thread_data *)param;
 
-	int rank = data->rank;
-	int threadCount = data->threadCount;
-	char* outputName = data->outputName;
-	int startI, endI;
-	
-	ofstream write;
-	write.open(outputName, ios::app);	
-	Graph map(p.gNumHTiles(), p.gNumVTiles(), p.gCapacity(), p.gNumNets());
-	
-//	for (int i = rank * p.gNumNets() / threadCount; i < (rank + 1) * p.gNumNets() / threadCount; i++)
-	for (int i = 0 + rank; i < p.gNumNets(); i = i + threadCount)
-	{	
-		Pos start = p.gNetStart(i);
-		Pos end = p.gNetEnd(i);
-		stack<Pos> routingPath = map.routing(start, end);
-		pthread_mutex_lock(&mutex);
-		printRoutes(start, end, routingPath, p, write);
-		pthread_mutex_unlock(&mutex);
-	}
-	
-	write.close();
-	return NULL;
+    int rank = data->rank;
+    int threadCount = data->threadCount;
+    char *outputName = data->outputName;
+    int startI, endI;
+    vector<stack<Pos>> paths;
+
+    ofstream write;
+    write.open(outputName, ios::app);
+    Graph map(p.gNumHTiles(), p.gNumVTiles(), p.gCapacity(), p.gNumNets());
+
+    for (int i = 0 + rank; i < p.gNumNets(); i = i + threadCount)
+    {
+        Pos start = p.gNetStart(i);
+        Pos end = p.gNetEnd(i);
+        paths.push_back(map.routing(start, end));
+    }
+
+    pthread_mutex_lock(&mutex);
+    for (int j = 0; j < paths.size(); j++)
+    {
+        printRoutes(paths[j], p, write);
+    }
+    pthread_mutex_unlock(&mutex);
+
+    write.close();
+    return NULL;
 }
 
 // Vertex
@@ -252,6 +258,8 @@ stack<Pos> Graph::routing(const Pos &start, const Pos &end)
         routingPath.push(vNow->pi->position);
         vNow = vNow->pi;
     }
+    routingPath.push(end);
+    routingPath.push(start);
 
     return routingPath;
 }
@@ -335,8 +343,13 @@ int Graph::calcHeuristic(const Pos &posNow, const Pos &goal)
 }
 
 // global function
-void printRoutes(const Pos &start, const Pos &end, stack<Pos> &routingPath, Parser &p, ofstream &output)
+void printRoutes(stack<Pos> &routingPath, Parser &p, ofstream &output)
 {
+    Pos start = routingPath.top();
+    routingPath.pop();
+    Pos end = routingPath.top();
+    routingPath.pop();
+
     int routingDist = routingPath.size() - 1;
     output << p.getNetId(start, end) << " " << routingDist << endl;
 
