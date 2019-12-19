@@ -2,7 +2,7 @@
 #include <algorithm>
 #include <set>
 #include "../util/parser.h"
-#include "../util/timer.h"
+// #include "../util/timer.h"
 
 using namespace std;
 
@@ -61,18 +61,14 @@ public:
 
 void printRoutes(const Pos &start, const Pos &end, stack<Pos> &routingPath, Parser &p, ofstream &output);
 
-
-
-
-
 // ================ main funtion =================
 int main(int argc, char **argv)
 {
     Parser p;
-    Timer t;
+    // Timer t;
     ofstream output(argv[2]);
 
-    t.Begin();
+    // t.Begin();
     p.read(argv[1]);
     Graph map(p.gNumHTiles(), p.gNumVTiles(), p.gCapacity(), p.gNumNets());
 
@@ -84,15 +80,11 @@ int main(int argc, char **argv)
         printRoutes(start, end, routingPath, p, output);
     }
 
-    cout << "Execution time: " << t.End() << "s" << endl;
+    // cout << "Execution time: " << t.End() << "s" << endl;
     output.close();
     return 0;
 }
 // =================================================
-
-
-
-
 
 // Vertex
 Vertex::Vertex() : g(-1), f(-1), pi(nullptr), index(-1)

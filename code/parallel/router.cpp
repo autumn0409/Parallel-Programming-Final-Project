@@ -3,7 +3,7 @@
 #include <algorithm>
 #include <set>
 #include "../util/parser.h"
-#include "../util/timer.h"
+// #include "../util/timer.h"
 #include <pthread.h>
 
 using namespace std;
@@ -80,14 +80,14 @@ Parser p;
 int main(int argc, char **argv)
 {
     int thread_count = atoi(argv[3]);
-    Timer t;
+    // Timer t;
     ofstream output(argv[2]);
     output.close();
     pthread_t th[thread_count];
     pthread_mutex_init(&mutex, NULL);
     thread_data data[thread_count];
 
-    t.Begin();
+    // t.Begin();
 
     p.read(argv[1]);
     for (int i = 0; i < thread_count; i++)
@@ -104,7 +104,7 @@ int main(int argc, char **argv)
     }
 
     pthread_mutex_destroy(&mutex);
-    cout << "Execution time: " << t.End() << "s" << endl;
+    // cout << "Execution time: " << t.End() << "s" << endl;
     return 0;
 }
 // =================================================
