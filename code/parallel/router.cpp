@@ -3,144 +3,112 @@
 #include <algorithm>
 #include <set>
 #include "../util/parser.h"
-// #include "../util/timer.h"
-#include <pthread.h>
+#include "omp.h"
 
 using namespace std;
 
-pthread_mutex_t mutex;
-
-typedef struct thread_data
-{
-    int rank;
-    int threadCount;
-    char *outputName;
-} thread_data;
-
 class Vertex
 {
-    friend class Graph;
-    friend bool operator<(const Vertex &, const Vertex &);
-    friend bool operator>(const Vertex &, const Vertex &);
-    friend bool operator==(const Vertex &v1, const Vertex &v2);
-
-private:
+public:
     Pos position;
     double g, f;
     Vertex *pi;
     int index;
 
-public:
     Vertex();
     Vertex(int x, int y, int gridNumX);
 };
 
 class Edge
 {
-    friend class Graph;
-
-private:
+public:
     int vertexIndex;
     double flowNum;
     double weight;
 
-public:
     Edge(int num);
 };
 
-class Graph
-{
-private:
-    int gridNumX;
-    int gridNumY;
-    int capacity;
-    int netCnt;
-    vector<vector<Edge>> adjList;
-    vector<Vertex> vertices;
-
-    int getEdgeIndex(int listIndex, const Vertex *v);
-    void initSrc(const Pos &start, const Pos &end);
-    void relax(Vertex &v, int j, const Pos &end, set<Vertex> &openSet, set<Vertex> &closedSet);
-    void updateEdgeInfo(const Vertex *vNow);
-    int pairToIndex(const Pos &position);
-    int calcHeuristic(const Pos &posNow, const Pos &goal);
-
-public:
-    Graph(int gridNumX, int gridNumY, int capacity, int netCnt);
-    stack<Pos> routing(const Pos &start, const Pos &end);
-};
-
+void relax(Vertex &v, int j, const Pos &end, set<Vertex> &openSet, set<Vertex> &closedSet,
+           vector<Vertex> &vertices, const vector<vector<Edge>> &adjList);
+int getEdgeIndex(int listIndex, const Vertex *v, vector<vector<Edge>> &adjList);
+void updateEdgeInfo(const Vertex *vNow, vector<vector<Edge>> &adjList);
+int calcHeuristic(const Pos &posNow, const Pos &goal);
+void initSrc(const Pos &start, const Pos &end, vector<Vertex> &vertices);
+int pairToIndex(const Pos &position);
+void setGraph(int gridNumX, int gridNumY, int capacity, int netCnt, vector<vector<Edge>> &adjList,
+              vector<Vertex> &vertices);
+void routing(const Pos &start, const Pos &end, vector<Vertex> &vertices, const vector<vector<Edge>> &adjList);
+// store path and update edge weight and flowNum
+stack<Pos> getPath(const Pos &start, const Pos &end, vector<Vertex> &vertices, vector<vector<Edge>> &adjList);
 void printRoutes(stack<Pos> &routingPath, Parser &p, ofstream &output);
 
-void *Thread_routing(void *param);
+bool operator<(const Vertex &, const Vertex &);
+bool operator>(const Vertex &, const Vertex &);
+bool operator==(const Vertex &v1, const Vertex &v2);
 
-Parser p;
+int gridNumX, capacity, netCnt;
 
 // ================ main funtion =================
 int main(int argc, char **argv)
 {
-    int thread_count = atoi(argv[3]);
-    // Timer t;
+    int threadCnt = atoi(argv[3]);
+    omp_set_num_threads(threadCnt);
     ofstream output(argv[2]);
-    output.close();
-    pthread_t th[thread_count];
-    pthread_mutex_init(&mutex, NULL);
-    thread_data data[thread_count];
 
-    // t.Begin();
+    Parser p;
+    vector<vector<Edge>> adjList;
+    vector<Vertex> vertices;
 
     p.read(argv[1]);
-    for (int i = 0; i < thread_count; i++)
+    gridNumX = p.gNumHTiles();
+    capacity = p.gCapacity();
+    netCnt = p.gNumNets();
+
+    setGraph(gridNumX, p.gNumVTiles(), capacity, netCnt, adjList, vertices);
+
+#pragma omp parallel shared(adjList, p, output) firstprivate(vertices)
     {
-        data[i].rank = i;
-        data[i].threadCount = thread_count;
-        data[i].outputName = argv[2];
-        pthread_create(&th[i], NULL, Thread_routing, (void *)&data[i]);
+        vector<stack<Pos>> paths;
+        stack<Pos> path;
+
+        int rank = omp_get_thread_num();
+        int parallelNetCnt = netCnt / threadCnt * threadCnt; // # of nets routed parallelly
+
+        for (int i = 0 + rank; i < parallelNetCnt; i = i + threadCnt)
+        {
+            Pos start = p.gNetStart(i);
+            Pos end = p.gNetEnd(i);
+            routing(start, end, vertices, adjList);
+
+#pragma omp barrier
+            path = getPath(start, end, vertices, adjList);
+#pragma omp barrier
+
+            paths.push_back(path);
+        }
+
+#pragma omp master
+        for (int i = parallelNetCnt; i < netCnt; i++) // rest of nets are routed by master thread
+        {
+            Pos start = p.gNetStart(i);
+            Pos end = p.gNetEnd(i);
+            routing(start, end, vertices, adjList);
+            path = getPath(start, end, vertices, adjList);
+            paths.push_back(path);
+        }
+
+#pragma omp critical
+        for (int j = 0; j < paths.size(); j++)
+        {
+            printRoutes(paths[j], p, output);
+        }
     }
 
-    for (int i = 0; i < thread_count; i++)
-    {
-        pthread_join(th[i], NULL);
-    }
-
-    pthread_mutex_destroy(&mutex);
-    // cout << "Execution time: " << t.End() << "s" << endl;
+    output.close();
     return 0;
 }
 // =================================================
-
-// Thread_function
-void *Thread_routing(void *param)
-{
-    thread_data *data = (thread_data *)param;
-
-    int rank = data->rank;
-    int threadCount = data->threadCount;
-    char *outputName = data->outputName;
-    int startI, endI;
-    vector<stack<Pos>> paths;
-
-    ofstream write;
-    write.open(outputName, ios::app);
-    Graph map(p.gNumHTiles(), p.gNumVTiles(), p.gCapacity(), p.gNumNets());
-
-    for (int i = 0 + rank; i < p.gNumNets(); i = i + threadCount)
-    {
-        Pos start = p.gNetStart(i);
-        Pos end = p.gNetEnd(i);
-        paths.push_back(map.routing(start, end));
-    }
-
-    pthread_mutex_lock(&mutex);
-    for (int j = 0; j < paths.size(); j++)
-    {
-        printRoutes(paths[j], p, write);
-    }
-    pthread_mutex_unlock(&mutex);
-
-    write.close();
-    return NULL;
-}
 
 // Vertex
 Vertex::Vertex() : g(-1), f(-1), pi(nullptr), index(-1)
@@ -180,9 +148,9 @@ Edge::Edge(int num) : vertexIndex(num), weight(1), flowNum(0)
 {
 }
 
-// Graph
-Graph::Graph(int gridNumX, int gridNumY, int capacity, int netCnt)
-    : gridNumX(gridNumX), gridNumY(gridNumY), capacity(capacity), netCnt(netCnt)
+// global function
+void setGraph(int gridNumX, int gridNumY, int capacity, int netCnt, vector<vector<Edge>> &adjList,
+              vector<Vertex> &vertices)
 {
     for (int j = 0; j < gridNumY; j++)
     {
@@ -216,21 +184,20 @@ Graph::Graph(int gridNumX, int gridNumY, int capacity, int netCnt)
                 edges.push_back(lowerEdge);
             }
 
-            this->adjList.push_back(edges);
-            this->vertices.push_back(aVertex);
+            adjList.push_back(edges);
+            vertices.push_back(aVertex);
         }
     }
 }
-stack<Pos> Graph::routing(const Pos &start, const Pos &end)
+void routing(const Pos &start, const Pos &end, vector<Vertex> &vertices, const vector<vector<Edge>> &adjList)
 {
     // A* search algorithm
     set<Vertex> closedSet;
     set<Vertex> openSet;
 
-    int srcIndex = this->pairToIndex(start);
-    this->initSrc(start, end);
-    openSet.insert(this->vertices[srcIndex]);
-
+    int srcIndex = pairToIndex(start);
+    initSrc(start, end, vertices);
+    openSet.insert(vertices[srcIndex]);
     while (!openSet.empty())
     {
         Vertex u = *openSet.begin();    // extract Vertex who's f is minimum from openSet
@@ -241,36 +208,41 @@ stack<Pos> Graph::routing(const Pos &start, const Pos &end)
 
         closedSet.insert(u);
 
-        int uDeg = this->adjList[u.index].size(); // # of Vertex around u
+        int uDeg = adjList[u.index].size(); // # of Vertex around u
         for (int j = 0; j < uDeg; j++)
-            this->relax(u, j, end, openSet, closedSet);
+            relax(u, j, end, openSet, closedSet, vertices, adjList);
     }
-
-    // store path and update edge weight and flowNum
+}
+stack<Pos> getPath(const Pos &start, const Pos &end, vector<Vertex> &vertices, vector<vector<Edge>> &adjList)
+{
     stack<Pos> routingPath;
-    int endIndex = this->pairToIndex(end);
-    Vertex *vNow = &(this->vertices[endIndex]);
+    int endIndex = pairToIndex(end);
+    Vertex *vNow = &(vertices[endIndex]);
 
     routingPath.push(vNow->position);
     while (vNow->pi != nullptr)
     {
-        this->updateEdgeInfo(vNow);
+#pragma omp critical
+        updateEdgeInfo(vNow, adjList);
+
         routingPath.push(vNow->pi->position);
         vNow = vNow->pi;
     }
+
     routingPath.push(end);
     routingPath.push(start);
 
     return routingPath;
 }
-void Graph::relax(Vertex &u, int j, const Pos &end, set<Vertex> &openSet, set<Vertex> &closedSet)
+void relax(Vertex &u, int j, const Pos &end, set<Vertex> &openSet, set<Vertex> &closedSet,
+           vector<Vertex> &vertices, const vector<vector<Edge>> &adjList)
 {
     // get the weight of the edge between u and v
-    double weight = this->adjList[u.index][j].weight;
+    double weight = adjList[u.index][j].weight;
 
     // get Vertex v from u and j
-    int vIndex = this->adjList[u.index][j].vertexIndex;
-    Vertex *v = &(this->vertices[vIndex]);
+    int vIndex = adjList[u.index][j].vertexIndex;
+    Vertex *v = &(vertices[vIndex]);
 
     if (closedSet.find(*v) != closedSet.end()) // v is in the closedSet
         return;
@@ -285,64 +257,62 @@ void Graph::relax(Vertex &u, int j, const Pos &end, set<Vertex> &openSet, set<Ve
 
     if (tentativeIsBetter)
     {
-        v->pi = &(this->vertices[u.index]);
+        v->pi = &(vertices[u.index]);
         v->g = u.g + weight;
         v->f = v->g + calcHeuristic(v->position, end);
-        openSet.insert(this->vertices[vIndex]);
+        openSet.insert(vertices[vIndex]);
     }
 }
-int Graph::getEdgeIndex(int listIndex, const Vertex *v)
+int getEdgeIndex(int listIndex, const Vertex *v, vector<vector<Edge>> &adjList)
 {
     int i = 0;
-    while (this->adjList[listIndex][i].vertexIndex != v->index)
+    while (adjList[listIndex][i].vertexIndex != v->index)
         i++;
 
     return i;
 }
-void Graph::initSrc(const Pos &start, const Pos &end)
+void initSrc(const Pos &start, const Pos &end, vector<Vertex> &vertices)
 {
     // initialize all Vertex's g, f and pi in the map
-    for (int i = 0; i < this->vertices.size(); i++)
+    for (int i = 0; i < vertices.size(); i++)
     {
-        this->vertices[i].g = INT32_MAX;
-        this->vertices[i].f = INT32_MAX;
-        this->vertices[i].pi = nullptr;
+        vertices[i].g = INT32_MAX;
+        vertices[i].f = INT32_MAX;
+        vertices[i].pi = nullptr;
     }
     // initialize source Vertex's g and f
-    int h = this->calcHeuristic(start, end);
-    this->vertices[this->pairToIndex(start)].g = 0;
-    this->vertices[this->pairToIndex(start)].f = h;
+    int h = calcHeuristic(start, end);
+    vertices[pairToIndex(start)].g = 0;
+    vertices[pairToIndex(start)].f = h;
 }
-void Graph::updateEdgeInfo(const Vertex *vNow)
+void updateEdgeInfo(const Vertex *vNow, vector<vector<Edge>> &adjList)
 {
     // vNow's egde index in vNow->pi's list
-    int vNow_edgeIndex = this->getEdgeIndex(vNow->pi->index, vNow);
+    int vNow_edgeIndex = getEdgeIndex(vNow->pi->index, vNow, adjList);
 
     // vNow->pi's edge index in vNow's list
-    int vNowPi_edgeIndex = this->getEdgeIndex(vNow->index, vNow->pi);
+    int vNowPi_edgeIndex = getEdgeIndex(vNow->index, vNow->pi, adjList);
 
     // derive new flowNum & new weight
-    double newFlowNum = this->adjList[vNow->pi->index][vNow_edgeIndex].flowNum + 1;
-    double newWeight = 1 + newFlowNum / this->capacity;
+    double newFlowNum = adjList[vNow->pi->index][vNow_edgeIndex].flowNum + 1;
+    double newWeight = 1 + newFlowNum / capacity;
 
     // update flowNum and weight
-    this->adjList[vNow->pi->index][vNow_edgeIndex].weight = newWeight;
-    this->adjList[vNow->index][vNowPi_edgeIndex].weight = newWeight;
-    this->adjList[vNow->pi->index][vNow_edgeIndex].flowNum = newFlowNum;
-    this->adjList[vNow->index][vNowPi_edgeIndex].flowNum = newFlowNum;
+    adjList[vNow->pi->index][vNow_edgeIndex].weight = newWeight;
+    adjList[vNow->index][vNowPi_edgeIndex].weight = newWeight;
+    adjList[vNow->pi->index][vNow_edgeIndex].flowNum = newFlowNum;
+    adjList[vNow->index][vNowPi_edgeIndex].flowNum = newFlowNum;
 }
-int Graph::pairToIndex(const Pos &position)
+int pairToIndex(const Pos &position)
 {
     int x = position.first;
     int y = position.second;
-    return x + this->gridNumX * y;
+    return x + gridNumX * y;
 }
-int Graph::calcHeuristic(const Pos &posNow, const Pos &goal)
+int calcHeuristic(const Pos &posNow, const Pos &goal)
 {
     return abs(posNow.first - goal.first) + abs(posNow.second - goal.second);
 }
-
-// global function
 void printRoutes(stack<Pos> &routingPath, Parser &p, ofstream &output)
 {
     Pos start = routingPath.top();
