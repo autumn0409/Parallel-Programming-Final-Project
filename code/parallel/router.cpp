@@ -295,7 +295,7 @@ void updateEdgeInfo(const Vertex *vNow, vector<vector<Edge>> &adjList)
 
     // derive new flowNum & new weight
     double newFlowNum = adjList[vNow->pi->index][vNow_edgeIndex].flowNum + 1;
-    double newWeight = 1 + newFlowNum / capacity;
+    double newWeight = 1 + (newFlowNum >= capacity ? pow(2, newFlowNum / capacity) : newFlowNum / capacity);
 
     // update flowNum and weight
     adjList[vNow->pi->index][vNow_edgeIndex].weight = newWeight;

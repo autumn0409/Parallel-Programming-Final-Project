@@ -265,7 +265,7 @@ void Graph::updateEdgeInfo(const Vertex *vNow)
 
     // derive new flowNum & new weight
     double newFlowNum = this->adjList[vNow->pi->index][vNow_edgeIndex].flowNum + 1;
-    double newWeight = 1 + newFlowNum / this->capacity;
+    double newWeight = 1 + (newFlowNum >= this->capacity ? pow(2, newFlowNum / this->capacity) : newFlowNum / this->capacity);
 
     // update flowNum and weight
     this->adjList[vNow->pi->index][vNow_edgeIndex].weight = newWeight;
